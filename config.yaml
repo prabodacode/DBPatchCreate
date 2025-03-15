@@ -1,0 +1,9 @@
+project:
+  root_path: "D:\\GitDev\\DB"
+  branch_name: "development"
+
+base_release:
+  version: "DFNNTP-DB_SA_ALKB_10.043.3.0"
+
+hotfix_release:
+  type: "QA" #QA,UAT
