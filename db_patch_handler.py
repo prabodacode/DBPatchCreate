@@ -161,6 +161,8 @@ def process_sql_file_and_add_end_markers(input_f, output_f):
         # Final end marker
         output_file.write("\n--END--\n")
 
+
+
 def read_temp_folder(data_bean):
     sql_files = [f for f in os.listdir('temp') if f.endswith(".sql")]
     data_bean.hotfix_folder="output"
@@ -183,9 +185,30 @@ def read_temp_folder(data_bean):
             if ddl_info:
                 file_utils.create_folder_if_not_exists(os.path.join(build_script_path))
                 ddl_type, object_type, schema, db_object = ddl_info
-                file_utils.create_folder_if_not_exists(os.path.join(build_script_path + f"/{schema}"))
+                file_utils.create_folder_if_not_exists(os.path.join(build_script_path + f"/{schema}/{object_type}s"))
+                file_suffix = get_file_suffix(object_type)
+                with open(build_script_path + f"/{schema}/{object_type}s/{schema}.{db_object}.{file_suffix}.sql", "a") as output_file:
+                    output_file.write(block)
 
     return True
+
+def get_file_suffix(object_type):
+    match object_type:
+        case "table":
+            return ".tab"
+        case "procedure":
+            return ".proc"
+        case "package":
+            return ".pkg"
+        case "trigger":
+            return ".trig"
+        case "view":
+            return ".view"
+        case "function":
+            return ".func"
+        case _:
+            return ".unknown"
+
 
 def read_blocks_from_file(file_path):
     with open(file_path, 'r') as file:
