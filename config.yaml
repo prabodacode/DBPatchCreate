@@ -3,7 +3,10 @@ project:
   branch_name: "development"
 
 base_release:
-  version: "DFNNTP-DB_SA_ALKB_10.043.3.0"
+  base_version: "DFNNTP-DB_SA_MSSA_10.040.1.1"
 
 hotfix_release:
-  type: "QA" #QA,UAT
+  hotfix_type: "QA" #QA,UAT
+
+scripts_source:
+  source_folder: "source"

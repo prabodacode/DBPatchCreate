@@ -1,43 +1,31 @@
+import subprocess
+
 from git import Repo
 from git.exc import GitCommandError
-import subprocess
-import os
 
-def checkout_branch(repo_path, branch_name):
-    """
-    Check out to a specific branch in a Git repository.
 
-    :param repo_path: Path to the local repository
-    :param branch_name: Name of the branch to check out
-    """
+def git_checkout_and_pull(branch_name: str, repo_path: str = '.'):
     try:
-        # Open the repository
         repo = Repo(repo_path)
 
-        # Ensure it's a Git repository
-        if repo.bare:
-            print("Repository is empty or not properly initialized.")
-            return
+        # Fetch latest from origin
+        repo.remotes.origin.fetch()
 
-        # Fetch the branch to ensure it exists
-        print(f"Fetching branches in repository: {repo_path}")
-        repo.remotes.origin.fetch() #--Uncomment
-
-        # Checkout to the branch
+        # Checkout the branch (create if not exists locally)
         if branch_name in repo.heads:
-            print(f"Checking out to local branch: {branch_name}")
             repo.git.checkout(branch_name)
         else:
-            print(f"Branch {branch_name} not found locally. Attempting to check out remotely...")
-            repo.git.checkout(f'origin/{branch_name}', b=branch_name)
+            repo.git.checkout('-b', branch_name, f'origin/{branch_name}')
 
-        print(f"Successfully checked out to branch: {branch_name}")
+        # Pull latest changes
+        repo.remotes.origin.pull(branch_name)
+
+        print(f"Checked out and pulled branch '{branch_name}' successfully.")
 
     except GitCommandError as e:
-        print(f"Git command failed: {e}")
+        print(f"Git error: {e}")
     except Exception as e:
-        print(f"An error occurred: {e}")
-
+        print(f"Error: {e}")
 
 
 def add_to_git(repo_path):

@@ -1,5 +1,7 @@
 import os
 
-def validate_folder(folder_path):
-    if not os.path.exists(folder_path) or not os.path.isdir(folder_path):
-        raise FileNotFoundError(f"Folder does not exist: {folder_path}")
+def create_folder_if_not_exists(path):
+    folder = path if not path.endswith(".sql") else os.path.dirname(path)
+
+    if folder:
+        os.makedirs(folder, exist_ok=True)

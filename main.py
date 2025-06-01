@@ -7,15 +7,19 @@ from git_utils import *
 
 
 
+
 if __name__ == "__main__":
+    # sys.exit(0);
     config_data = read_config_file()
     data_bean = DataBean()
 
     populate_configs(config_data, data_bean)
     pre_populate(config_data, data_bean)
 
-    checkout_branch(data_bean.repo_path, data_bean.branch_name)
-    copy_base_patch_to_new_hotfix_folder(data_bean)
+    # git_checkout_and_pull(data_bean.branch_name, data_bean.repo_path)
+    copy_patch_template_to_new_hotfix_folder(data_bean)
+    read_source_folder(data_bean.source_folder)
+    read_temp_folder(data_bean)
     i=10
 
     # create_next_hotfix_folder_from_base_patch(base_patch_folder, next_hotfix_folder)
