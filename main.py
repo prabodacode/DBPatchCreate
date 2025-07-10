@@ -10,6 +10,7 @@ from git_utils import *
 
 if __name__ == "__main__":
     # sys.exit(0);
+    clean_temporary_files()
     config_data = read_config_file()
     data_bean = DataBean()
 
@@ -19,8 +20,9 @@ if __name__ == "__main__":
     # git_checkout_and_pull(data_bean.branch_name, data_bean.repo_path)
     copy_patch_template_to_new_hotfix_folder(data_bean)
     read_source_folder(data_bean.source_folder)
+    source_validation(data_bean)
     read_temp_folder(data_bean)
-    validation(data_bean)
+    # validation(data_bean)
     i=10
 
     # create_next_hotfix_folder_from_base_patch(base_patch_folder, next_hotfix_folder)
