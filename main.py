@@ -20,6 +20,7 @@ if __name__ == "__main__":
     copy_patch_template_to_new_hotfix_folder(data_bean)
     read_source_folder(data_bean.source_folder)
     read_temp_folder(data_bean)
+    validation(data_bean)
     i=10
 
     # create_next_hotfix_folder_from_base_patch(base_patch_folder, next_hotfix_folder)

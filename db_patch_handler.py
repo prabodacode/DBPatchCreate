@@ -51,6 +51,13 @@ def populate_configs(config_data, data_bean):
     data_bean.hotfix_type = config_data["hotfix_release"]["hotfix_type"]
     data_bean.source_folder = config_data["scripts_source"]["source_folder"]
 
+    print(f"LN:54, populate_configs, root_path={data_bean.root_path}"
+          f"\nbranch_name={data_bean.branch_name}"
+          f"\nbase_version={data_bean.base_version}"
+          f"\nhotfix_type={data_bean.hotfix_type}"
+          f"\nsource_folder={data_bean.source_folder}")
+
+
 def set_next_hotfix_version(data_bean):
     qa_hotfix_version = data_bean.qa_version
     uat_hotfix_version = data_bean.uat_version
@@ -63,6 +70,7 @@ def set_next_hotfix_version(data_bean):
 
         # DFNNTP-DB_SA_ALKB_10.043.4.0
     data_bean.hotfix_version = f"DFNNTP-DB_SA_{data_bean.brokerage}_{data_bean.major_version}.{data_bean.minor_version}.{qa_hotfix_version}.{uat_hotfix_version}"
+    print(f"LN:66, set_next_hotfix_version, hotfix_version={data_bean.hotfix_version}")
     data_bean.hotfix_folder = os.path.join(data_bean.patches_folder, data_bean.hotfix_version)
 
 def copy_patch_template_to_new_hotfix_folder(data_bean):
@@ -106,7 +114,7 @@ def process_sql_file_and_add_end_markers(input_f, output_f):
 
             # Skip block detection if we're inside a CREATE PROCEDURE/FUNCTION etc.
             if not (status.is_ddl_block or status.is_plsql_block):
-                is_block_start, block_type = get_is_block_start_line(line_number, line)
+                is_block_start, block_type = is_plsql_block_start_line(line_number, line)
                 if is_block_start:
                     output_file.write("\n--END--\n")
                     if block_type == 'DECLARE':
@@ -190,24 +198,39 @@ def read_temp_folder(data_bean):
                 with open(build_script_path + f"/{schema}/{object_type}s/{schema}.{db_object}.{file_suffix}.sql", "a") as output_file:
                     output_file.write(block)
 
+            plsql_info = is_plsql_ddl_block(i, block)
+            if plsql_info:
+                file_utils.create_folder_if_not_exists(os.path.join(build_script_path))
+                ddl_type, object_type, schema, db_object = plsql_info
+                file_utils.create_folder_if_not_exists(os.path.join(build_script_path + f"/{schema}/{object_type}s"))
+                file_suffix = get_file_suffix(object_type)
+                with open(build_script_path + f"/{schema}/{object_type}s/{schema}.{db_object}.{file_suffix}.sql", "a") as output_file:
+                    output_file.write(block)
+            else:
+                plsql_block_info = is_plsql_block_(i, block)
+                if plsql_block_info:
+                    start, schema, end = plsql_block_info
+                    file_utils.create_folder_if_not_exists(os.path.join(update_data_path + f"/{schema}/data"))
+                    with open(update_data_path + f"/{schema}/data/{schema}.data_fixes.data.sql", "a") as output_file:
+                        output_file.write(block)
     return True
 
 def get_file_suffix(object_type):
     match object_type:
         case "table":
-            return ".tab"
+            return "tab"
         case "procedure":
-            return ".proc"
+            return "proc"
         case "package":
-            return ".pkg"
+            return "pkg"
         case "trigger":
-            return ".trig"
+            return "trig"
         case "view":
-            return ".view"
+            return "view"
         case "function":
-            return ".func"
+            return "func"
         case _:
-            return ".unknown"
+            return "unknown"
 
 
 def read_blocks_from_file(file_path):
@@ -217,3 +240,20 @@ def read_blocks_from_file(file_path):
     # Split the content into blocks using the tag "--END--"
     blocks = [block for block in content.split('\n--END--\n')]
     return blocks
+
+#############################
+def validation(data_bean):
+    shutil.copytree('temp', 'validation',dirs_exist_ok=True)
+    sql_files = [f for f in os.listdir('validation') if f.endswith(".sql")]
+    data_bean.hotfix_folder="output"
+    output_path = os.path.join(data_bean.hotfix_folder + f"/02 New DB Release")
+
+    for sql_file in sql_files:
+        input_file = os.path.join('temp', sql_file)
+        blocks = read_blocks_from_file(input_file)
+        for i, block in enumerate(blocks, 1):
+            file_1, block_1 = find_block_in_files(output_path, block)
+            print(
+                f"FILE:{file_1}, \nBlock: \n{block_1}")
+
+    return True
