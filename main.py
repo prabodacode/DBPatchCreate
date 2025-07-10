@@ -22,7 +22,7 @@ if __name__ == "__main__":
     read_source_folder(data_bean.source_folder)
     source_validation(data_bean)
     read_temp_folder(data_bean)
-    # validation(data_bean)
+    patch_validation(data_bean)
     i=10
 
     # create_next_hotfix_folder_from_base_patch(base_patch_folder, next_hotfix_folder)

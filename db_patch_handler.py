@@ -9,7 +9,7 @@ from file_utils import *
 from sql_utils import *
 
 def clean_temporary_files():
-    delete_folder_if_exists('output')
+    delete_folder_if_exists('patch')
     delete_folder_if_exists('temp')
     delete_folder_if_exists('source_validation')
     delete_folder_if_exists('validation')
@@ -179,7 +179,7 @@ def process_sql_file_and_add_end_markers(input_f, output_f):
 
 def read_temp_folder(data_bean):
     sql_files = [f for f in os.listdir('temp') if f.endswith(".sql")]
-    data_bean.hotfix_folder="output"
+    data_bean.hotfix_folder='patch'
     build_script_path = os.path.join(data_bean.hotfix_folder + f"/02 New DB Release/Build-Scripts")
     update_data_path = os.path.join(data_bean.hotfix_folder + f"/02 New DB Release/UpdateData")
 
@@ -255,22 +255,16 @@ def source_validation(data_bean):
     shutil.copytree('source', 'source_validation',dirs_exist_ok=True)
     sql_files = [f for f in os.listdir('temp') if f.endswith(".sql")]
 
-    status = True
     for sql_file in sql_files:
         input_file = os.path.join('temp', sql_file)
-        validation_file = os.path.join('source_validation', sql_file.removeprefix('temp_'))
         blocks = read_blocks_from_file(input_file)
         for i, block in enumerate(blocks, 1):
             file_1 = find_block_in_files('source_validation', block)
             if file_1:
                 print(f"source_validation, block found, :sql_file={sql_file},i={i}, destination_file={file_1}")
-                remove_first_block_from_file(validation_file, block)
+                remove_first_block_from_file(file_1, block)
 
-        if(is_file_empty(validation_file) or is_file_blank(validation_file)):
-            print(f"LN:269, source_validation success for file={validation_file}")
-        else:
-            print(f"LN:272, source_validation failed for file={validation_file}")
-            status = False
+    status = is_empty_file_folder('source_validation')
 
     if(status):
         print(f"LN:276, =====source_validation successful=====")
@@ -278,20 +272,22 @@ def source_validation(data_bean):
     return status
 
 #############################
-def validation(data_bean):
-    shutil.copytree('temp', 'validation',dirs_exist_ok=True)
+def patch_validation(data_bean):
+    shutil.copytree('patch', 'patch_validation',dirs_exist_ok=True)
     sql_files = [f for f in os.listdir('temp') if f.endswith(".sql")]
-    data_bean.hotfix_folder="output"
-    output_path = os.path.join(data_bean.hotfix_folder , "02 New DB Release")
 
     for sql_file in sql_files:
         input_file = os.path.join('temp', sql_file)
-        validation_file = os.path.join('validation', sql_file)
         blocks = read_blocks_from_file(input_file)
         for i, block in enumerate(blocks, 1):
-            file_1 = find_block_in_files(output_path, block)
+            file_1 = find_block_in_files('patch_validation', block)
             if file_1:
-                print(f"File found, :sql_file={sql_file},i={i}, destination_file={file_1}")
-                remove_first_block_from_file(validation_file, block)
+                print(f"patch_validation, block found, :sql_file={sql_file}, i={i}, destination_file={file_1}")
+                remove_first_block_from_file(file_1, block)
 
-    return True
+    status = is_empty_file_folder('patch_validation')
+
+    if(status):
+        print(f"LN:291, =====patch_validation successful=====")
+
+    return status

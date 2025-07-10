@@ -51,3 +51,21 @@ def is_file_blank(file_path):
         return False
     with open(file_path, 'r', encoding='utf-8') as f:
         return not f.read().strip()
+
+def is_empty_file_folder(folder_path):
+    if not os.path.exists(folder_path):
+        print("Path does not exist:", folder_path)
+        return False
+
+    status = True
+    for root, _, files in os.walk(folder_path):
+        for file_name in sorted(files):
+            file_path = os.path.join(root, file_name)
+
+            if (is_file_empty(file_path) or is_file_blank(file_path)):
+                print(f"LN:66, is_empty_file_folder success for file={file_path}")
+            else:
+                print(f"LN:69, is_empty_file_folder failed for file={file_path}")
+                status = False
+
+    return status
