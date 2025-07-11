@@ -1,5 +1,6 @@
 import re
 import shutil
+from collections import defaultdict
 
 import yaml
 
@@ -8,11 +9,11 @@ from BlockStatus import BlockStatus
 from file_utils import *
 from sql_utils import *
 
-def clean_temporary_files():
-    delete_folder_if_exists('patch')
+def clean_temporary_files(data_bean):
+    delete_folder_if_exists(data_bean.hotfix_folder)
     delete_folder_if_exists('temp')
     delete_folder_if_exists('source_validation')
-    delete_folder_if_exists('validation')
+    delete_folder_if_exists('patch_validation')
     return None
 
 def read_config_file():
@@ -78,10 +79,21 @@ def set_next_hotfix_version(data_bean):
     data_bean.hotfix_version = f"DFNNTP-DB_SA_{data_bean.brokerage}_{data_bean.major_version}.{data_bean.minor_version}.{qa_hotfix_version}.{uat_hotfix_version}"
     print(f"LN:66, set_next_hotfix_version, hotfix_version={data_bean.hotfix_version}")
     data_bean.hotfix_folder = os.path.join(data_bean.patches_folder, data_bean.hotfix_version)
+    # data_bean.hotfix_folder='patch' #temp change
 
-def copy_patch_template_to_new_hotfix_folder(data_bean):
+    data_bean.build_script_path = os.path.join(data_bean.hotfix_folder + f"/02 New DB Release/Build-Scripts")
+    data_bean.update_data_path = os.path.join(data_bean.hotfix_folder + f"/02 New DB Release/UpdateData")
+
+def copy_patch_template_folder_structure_to_new_hotfix_folder(data_bean):
     template_folder = os.path.join(data_bean.patches_folder, "PatchTemplate")
-    shutil.copytree(template_folder, data_bean.hotfix_folder, dirs_exist_ok=True)
+    destination_folder = data_bean.hotfix_folder
+
+    for root, dirs, _ in os.walk(template_folder):
+        # Construct the relative path from the template folder
+        rel_path = os.path.relpath(root, template_folder)
+        # Target directory path in destination
+        target_dir = os.path.join(destination_folder, rel_path)
+        os.makedirs(target_dir, exist_ok=True)
 
 def read_source_folder(source_folder):
     sql_files = [f for f in os.listdir(source_folder) if f.endswith(".sql")]
@@ -176,12 +188,31 @@ def process_sql_file_and_add_end_markers(input_f, output_f):
         output_file.write("\n--END--\n")
 
 
+def master_file_populate(data_bean, run_file_map):
+    lines_to_insert = []
+
+    for schema, types in run_file_map.items():
+        for obj_type in types:
+            if types.get(obj_type, 0) > 0:
+                # Format line like @@./tables/run.dfn_ntp.tables.sql
+                line = f"@@./{obj_type}s/run.{schema}.{obj_type}s.sql"
+                lines_to_insert.append(line)
+
+        master_file_name = data_bean.build_script_path + f"/{schema}/master.sql"
+        insert_before_search_string(master_file_name, "exit", lines_to_insert)
+    return lines_to_insert
+
 
 def read_temp_folder(data_bean):
     sql_files = [f for f in os.listdir('temp') if f.endswith(".sql")]
-    data_bean.hotfix_folder='patch'
-    build_script_path = os.path.join(data_bean.hotfix_folder + f"/02 New DB Release/Build-Scripts")
-    update_data_path = os.path.join(data_bean.hotfix_folder + f"/02 New DB Release/UpdateData")
+
+    run_file_map = defaultdict(lambda: {
+        "table": 0,
+        "procedure": 0,
+        "package": 0,
+        "trigger": 0,
+        "view": 0
+    })
 
     for sql_file in sql_files:
         input_file = os.path.join('temp', sql_file)
@@ -194,35 +225,58 @@ def read_temp_folder(data_bean):
             dml_info = is_dml_block(i, block)
             if dml_info:
                 dml_type, schema, table = dml_info
-                file_utils.create_folder_if_not_exists(os.path.join(update_data_path + f"/{schema}/data"))
-                with open(update_data_path + f"/{schema}/data/{schema}.data_fixes.data.sql", "a") as output_file:
+                file_utils.create_folder_if_not_exists(os.path.join(data_bean.update_data_path + f"/{schema}/data"))
+                with open(data_bean.update_data_path + f"/{schema}/data/{schema}.data_fixes.data.sql", "a") as output_file:
                     output_file.write(block)
 
             ddl_info = is_ddl_block(i, block)
             if ddl_info:
-                file_utils.create_folder_if_not_exists(os.path.join(build_script_path))
+                file_utils.create_folder_if_not_exists(os.path.join(data_bean.build_script_path))
                 ddl_type, object_type, schema, db_object = ddl_info
-                file_utils.create_folder_if_not_exists(os.path.join(build_script_path + f"/{schema}/{object_type}s"))
+                file_utils.create_folder_if_not_exists(os.path.join(data_bean.build_script_path + f"/{schema}/{object_type}s"))
                 file_suffix = get_file_suffix(object_type)
-                with open(build_script_path + f"/{schema}/{object_type}s/{schema}.{db_object}.{file_suffix}.sql", "a") as output_file:
+                with open(data_bean.build_script_path + f"/{schema}/{object_type}s/{schema}.{db_object}.{file_suffix}.sql", "a") as output_file:
                     output_file.write(block)
+
+                run_file_create(data_bean, db_object, file_suffix, object_type, schema)
+                master_file_create(data_bean, schema)
+                run_file_map[f"{schema}"][f"{object_type}"] = 1
 
             plsql_info = is_plsql_ddl_block(i, block)
             if plsql_info:
-                file_utils.create_folder_if_not_exists(os.path.join(build_script_path))
+                file_utils.create_folder_if_not_exists(os.path.join(data_bean.build_script_path))
                 ddl_type, object_type, schema, db_object = plsql_info
-                file_utils.create_folder_if_not_exists(os.path.join(build_script_path + f"/{schema}/{object_type}s"))
+                file_utils.create_folder_if_not_exists(os.path.join(data_bean.build_script_path + f"/{schema}/{object_type}s"))
                 file_suffix = get_file_suffix(object_type)
-                with open(build_script_path + f"/{schema}/{object_type}s/{schema}.{db_object}.{file_suffix}.sql", "a") as output_file:
+                with open(data_bean.build_script_path + f"/{schema}/{object_type}s/{schema}.{db_object}.{file_suffix}.sql", "a") as output_file:
                     output_file.write(block)
+
+                run_file_create(data_bean, db_object, file_suffix, object_type, schema)
+                master_file_create(data_bean, schema)
+                run_file_map[f"{schema}"][f"{object_type}"] = 1
             else:
                 plsql_block_info = is_plsql_block_(i, block)
                 if plsql_block_info:
                     start, schema, end = plsql_block_info
-                    file_utils.create_folder_if_not_exists(os.path.join(update_data_path + f"/{schema}/data"))
-                    with open(update_data_path + f"/{schema}/data/{schema}.data_fixes.data.sql", "a") as output_file:
+                    file_utils.create_folder_if_not_exists(os.path.join(data_bean.update_data_path + f"/{schema}/data"))
+                    with open(data_bean.update_data_path + f"/{schema}/data/{schema}.data_fixes.data.sql", "a") as output_file:
                         output_file.write(block)
+
+    master_file_populate(data_bean, run_file_map)
     return True
+
+
+def run_file_create(data_bean, db_object, file_suffix, object_type, schema):
+    run_file_name = data_bean.build_script_path + f"/{schema}/{object_type}s/run.{schema}.{object_type}s.sql"
+    tags = {"[#SCHEMA]": f"{schema}", "[#OBJECT_TYPE]": f"{object_type}s"}
+    file_utils.create_file_if_not_exists(run_file_name, f"templates/run_file_template.sql",
+                                         tags)
+    run_file_line = [f"@@{schema}.{db_object}.{file_suffix}.sql"]
+    insert_before_search_string(run_file_name, "spool off", run_file_line)
+
+def master_file_create(data_bean, schema):
+    master_file_name = data_bean.build_script_path + f"/{schema}/master.sql"
+    file_utils.create_file_if_not_exists(master_file_name, f"templates/master_file_template.sql",None)
 
 def get_file_suffix(object_type):
     match object_type:
@@ -273,7 +327,8 @@ def source_validation(data_bean):
 
 #############################
 def patch_validation(data_bean):
-    shutil.copytree('patch', 'patch_validation',dirs_exist_ok=True)
+    patch_folder = os.path.join(data_bean.hotfix_folder, f"02 New DB Release")
+    shutil.copytree(patch_folder, 'patch_validation',dirs_exist_ok=True)
     sql_files = [f for f in os.listdir('temp') if f.endswith(".sql")]
 
     for sql_file in sql_files:
@@ -291,3 +346,7 @@ def patch_validation(data_bean):
         print(f"LN:291, =====patch_validation successful=====")
 
     return status
+
+def create_run_files(data_bean):
+
+    return True

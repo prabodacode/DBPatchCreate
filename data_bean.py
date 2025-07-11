@@ -23,6 +23,8 @@ class DataBean:
 
     hotfix_version: str = ""
     hotfix_folder: str = ""
+    build_script_path: str = ""
+    update_data_path: str = ""
 
     source_folder: str = ""
 
