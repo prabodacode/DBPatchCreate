@@ -23,7 +23,7 @@ if __name__ == "__main__":
     populate_master_files(data_bean)
     add_additional_files(data_bean)
     repopulate_update_data_run_files(data_bean)
-    extract_core_country_versions_from_base_patch(data_bean)
+    version_update(data_bean)
     i=10
 
     # create_next_hotfix_folder_from_base_patch(base_patch_folder, next_hotfix_folder)

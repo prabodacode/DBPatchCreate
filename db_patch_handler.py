@@ -77,6 +77,7 @@ def set_next_hotfix_version(data_bean):
 
         # DFNNTP-DB_SA_ALKB_10.043.4.0
     data_bean.hotfix_version = f"DFNNTP-DB_SA_{data_bean.brokerage}_{data_bean.major_version}.{data_bean.minor_version}.{qa_hotfix_version}.{uat_hotfix_version}"
+    data_bean.hotfix_version_number = f"{data_bean.major_version}.{data_bean.minor_version}.{qa_hotfix_version}.{uat_hotfix_version}"
     print(f"LN:66, set_next_hotfix_version, hotfix_version={data_bean.hotfix_version}")
     data_bean.hotfix_folder = os.path.join(data_bean.patches_folder, data_bean.hotfix_version)
     # data_bean.hotfix_folder='patch' #temp change
@@ -331,27 +332,27 @@ def read_temp_folder(data_bean):
 def create_build_script_run_files(data_bean, file_name, object_type, schema):
     run_file_name = data_bean.build_script_path + f"/{schema}/{object_type}s/run.{schema}.{object_type}s.sql"
     tags = {"[#SCHEMA]": f"{schema}", "[#OBJECT_TYPE]": f"{object_type}s"}
-    file_utils.create_file_if_not_exists(run_file_name, f"templates/run_file_template.sql",
-                                         tags)
+    file_utils.create_or_append_file(run_file_name, f"templates/run_file_template.sql",
+                                     tags)
     run_file_line = [f"@@{file_name}"]
     file_utils.insert_before_search_string(run_file_name, "spool off", run_file_line)
 
 def create_update_data_run_files(data_bean, file_name, schema):
     run_file_name = data_bean.update_data_path + f"/{schema}/data/run.{schema}.data.sql"
     tags = {"[#SCHEMA]": f"{schema}", "[#OBJECT_TYPE]": f"data"}
-    file_utils.create_file_if_not_exists(run_file_name, f"templates/run_file_template.sql",
-                                         tags)
+    file_utils.create_or_append_file(run_file_name, f"templates/run_file_template.sql",
+                                     tags)
     run_file_line = [f"@@{file_name}"]
     file_utils.insert_before_search_string(run_file_name, "spool off", run_file_line)
 
 
 def master_file_create(data_bean, schema):
     master_file_name = data_bean.build_script_path + f"/{schema}/master.sql"
-    file_utils.create_file_if_not_exists(master_file_name, f"templates/master_file_template.sql",None)
+    file_utils.create_or_append_file(master_file_name, f"templates/master_file_template.sql", None)
 
 def update_file_create(data_bean, schema):
     master_file_name = data_bean.update_data_path + f"/{schema}/update.sql"
-    file_utils.create_file_if_not_exists(master_file_name, f"templates/master_file_template.sql",None)
+    file_utils.create_or_append_file(master_file_name, f"templates/master_file_template.sql", None)
 
 def get_file_suffix(object_type):
     match object_type:
@@ -427,37 +428,42 @@ def populate_master_files(data_bean):
     populate_update_data_master_file(data_bean)
     return True
 
-def extract_core_country_versions_from_base_patch(data_bean):
 
+def version_update(data_bean):
+    core_version, country_version, custom_version = extract_base_core_country_versions(data_bean)
+    tags = {
+        "[#BASE_VERSION]": f"{data_bean.base_version}"
+        , "[#PATCH_VERSION]": f"{data_bean.hotfix_version}"
+        , "[#PATCH_VERSION_NUMBERS]": f"{data_bean.hotfix_version_number}"
+        , "[#CORE_VERSION]": f"{core_version}"
+        , "[#COUNTRY_VERSION]": f"{country_version}"
+    }
+    data_fixes_file_name = data_bean.update_data_path + f"/dfn_ntp/data/dfn_ntp.data_fixes.data.sql"
+    file_utils.create_or_append_file(data_fixes_file_name, f"templates/data_fixes_update_template.sql",
+                                     tags)
+    return True
+
+def extract_base_core_country_versions(data_bean):
     file_path = os.path.join(
         data_bean.base_patch_folder,
         "02 New DB Release/UpdateData/dfn_ntp/data/dfn_ntp.data_fixes.data.sql"
     )
-
     if not os.path.exists(file_path):
         print("File not found:", file_path)
         return None
-
     with open(file_path, 'r', encoding='utf-8') as f:
         sql_text = f.read()
-
     # Normalize the SQL block (remove newlines, extra spaces)
     sql_flat = re.sub(r'\s+', ' ', sql_text)
-
     # Match the full VALUES clause for z10_version_audit_log
     pattern = re.compile(
         r"INSERT\s+INTO\s+dfn_ntp\.z10_version_audit_log\s*VALUES\s*\([^)]*?'([^']+)',\s*'([^']+)',\s*'([^']+)'",
         re.IGNORECASE
     )
-
     match = pattern.search(sql_flat)
     if match:
         core_version, country_version, custom_version = match.groups()
-        print(f"LN456:Base path versions, \ncore_version={core_version}, \ncountry_version={country_version}, \ncustom_version={custom_version}")
-        return {
-            "core": core_version,
-            "country": country_version,
-            "custom": custom_version
-        }
-
+        print(
+            f"LN456:Base path versions, \ncore_version={core_version}, \ncountry_version={country_version}, \ncustom_version={custom_version}")
+        return core_version, country_version, custom_version
     return None
