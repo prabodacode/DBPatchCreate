@@ -194,13 +194,26 @@ def populate_master_file(data_bean):
     for schema, types in data_bean.build_script_map.items():
         for obj_type in types:
             if types.get(obj_type, 0) > 0:
-                # Format line like @@./tables/run.dfn_ntp.tables.sql
-                line = f"@@./{obj_type}s/run.{schema}.{obj_type}s.sql"
-                lines_to_insert.append(line)
+                file_name = file_utils.get_run_file_name_in_folder(f"{data_bean.build_script_path}/{schema}/{obj_type}s")
+                lines_to_insert.append(f"@@./{file_name}")
 
         master_file_name = data_bean.build_script_path + f"/{schema}/master.sql"
         insert_before_search_string(master_file_name, "exit", lines_to_insert)
     return lines_to_insert
+
+def populate_update_file(data_bean):
+    lines_to_insert = []
+
+    for schema, types in data_bean.update_data_map.items():
+        for obj_type in types:
+            if types.get(obj_type, 0) > 0:
+                file_name = file_utils.get_run_file_name_in_folder(f"{data_bean.update_data_path}/{schema}/{obj_type}")
+                lines_to_insert.append(f"@@./{file_name}")
+
+        update_file_name = data_bean.update_data_path + f"/{schema}/update.sql"
+        insert_before_search_string(update_file_name, "exit", lines_to_insert)
+    return lines_to_insert
+
 
 
 def read_temp_folder(data_bean):
@@ -212,6 +225,9 @@ def read_temp_folder(data_bean):
         "package": 0,
         "trigger": 0,
         "view": 0
+    })
+    update_data_map = defaultdict(lambda: {
+        "data": 0
     })
 
     for sql_file in sql_files:
@@ -231,6 +247,8 @@ def read_temp_folder(data_bean):
                     output_file.write(block)
 
                 create_update_data_run_files(data_bean, file_name, schema)
+                update_file_create(data_bean, schema)
+                update_data_map[f"{schema}"][f"data"] = 1
 
             ddl_info = is_ddl_block(i, block)
             if ddl_info:
@@ -269,8 +287,11 @@ def read_temp_folder(data_bean):
                         output_file.write(block)
 
                     create_update_data_run_files(data_bean, file_name, schema)
+                    update_file_create(data_bean, schema)
+                    update_data_map[f"{schema}"][f"data"] = 1
 
     data_bean.build_script_map = build_script_map
+    data_bean.update_data_map = update_data_map
     return True
 
 
@@ -293,6 +314,10 @@ def create_update_data_run_files(data_bean, file_name, schema):
 
 def master_file_create(data_bean, schema):
     master_file_name = data_bean.build_script_path + f"/{schema}/master.sql"
+    file_utils.create_file_if_not_exists(master_file_name, f"templates/master_file_template.sql",None)
+
+def update_file_create(data_bean, schema):
+    master_file_name = data_bean.update_data_path + f"/{schema}/update.sql"
     file_utils.create_file_if_not_exists(master_file_name, f"templates/master_file_template.sql",None)
 
 def get_file_suffix(object_type):
@@ -366,4 +391,5 @@ def patch_validation(data_bean):
 
 def create_master_files(data_bean):
     populate_master_file(data_bean)
+    populate_update_file(data_bean)
     return True

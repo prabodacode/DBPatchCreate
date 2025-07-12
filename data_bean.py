@@ -30,4 +30,5 @@ class DataBean:
     source_folder: str = ""
 
     build_script_map: Optional[Dict[str, Dict[str, int]]] = None
+    update_data_map: Optional[Dict[str, Dict[str, int]]] = None
 

@@ -1,4 +1,4 @@
-import os
+import os, re
 import shutil
 
 
@@ -108,3 +108,11 @@ def insert_before_search_string(file_path, search_string, lines_to_insert):
 
     with open(file_path, 'w', encoding='utf-8') as f:
         f.writelines(lines)
+
+def get_run_file_name_in_folder(folder_path):
+    pattern = re.compile(r'^run.*\.sql$', re.IGNORECASE)
+
+    for f in os.listdir(folder_path):
+        if os.path.isfile(os.path.join(folder_path, f)) and pattern.match(f):
+            return f  # Return the first match
+    return None
