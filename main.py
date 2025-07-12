@@ -23,7 +23,7 @@ if __name__ == "__main__":
     source_validation(data_bean)
     read_temp_folder(data_bean)
     patch_validation(data_bean)
-    create_run_files(data_bean)
+    create_master_files(data_bean)
     i=10
 
     # create_next_hotfix_folder_from_base_patch(base_patch_folder, next_hotfix_folder)

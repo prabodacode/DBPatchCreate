@@ -188,10 +188,10 @@ def process_sql_file_and_add_end_markers(input_f, output_f):
         output_file.write("\n--END--\n")
 
 
-def master_file_populate(data_bean, run_file_map):
+def populate_master_file(data_bean):
     lines_to_insert = []
 
-    for schema, types in run_file_map.items():
+    for schema, types in data_bean.build_script_map.items():
         for obj_type in types:
             if types.get(obj_type, 0) > 0:
                 # Format line like @@./tables/run.dfn_ntp.tables.sql
@@ -206,7 +206,7 @@ def master_file_populate(data_bean, run_file_map):
 def read_temp_folder(data_bean):
     sql_files = [f for f in os.listdir('temp') if f.endswith(".sql")]
 
-    run_file_map = defaultdict(lambda: {
+    build_script_map = defaultdict(lambda: {
         "table": 0,
         "procedure": 0,
         "package": 0,
@@ -226,8 +226,11 @@ def read_temp_folder(data_bean):
             if dml_info:
                 dml_type, schema, table = dml_info
                 file_utils.create_folder_if_not_exists(os.path.join(data_bean.update_data_path + f"/{schema}/data"))
-                with open(data_bean.update_data_path + f"/{schema}/data/{schema}.data_fixes.data.sql", "a") as output_file:
+                file_name = f"{schema}.data_fixes.data.sql"
+                with open(data_bean.update_data_path + f"/{schema}/data/{file_name}", "a") as output_file:
                     output_file.write(block)
+
+                create_update_data_run_files(data_bean, file_name, schema)
 
             ddl_info = is_ddl_block(i, block)
             if ddl_info:
@@ -235,12 +238,13 @@ def read_temp_folder(data_bean):
                 ddl_type, object_type, schema, db_object = ddl_info
                 file_utils.create_folder_if_not_exists(os.path.join(data_bean.build_script_path + f"/{schema}/{object_type}s"))
                 file_suffix = get_file_suffix(object_type)
-                with open(data_bean.build_script_path + f"/{schema}/{object_type}s/{schema}.{db_object}.{file_suffix}.sql", "a") as output_file:
+                file_name = f"{schema}.{db_object}.{file_suffix}.sql"
+                with open(data_bean.build_script_path + f"/{schema}/{object_type}s/{file_name}", "a") as output_file:
                     output_file.write(block)
 
-                run_file_create(data_bean, db_object, file_suffix, object_type, schema)
+                create_build_script_run_files(data_bean, file_name, object_type, schema)
                 master_file_create(data_bean, schema)
-                run_file_map[f"{schema}"][f"{object_type}"] = 1
+                build_script_map[f"{schema}"][f"{object_type}"] = 1
 
             plsql_info = is_plsql_ddl_block(i, block)
             if plsql_info:
@@ -248,31 +252,44 @@ def read_temp_folder(data_bean):
                 ddl_type, object_type, schema, db_object = plsql_info
                 file_utils.create_folder_if_not_exists(os.path.join(data_bean.build_script_path + f"/{schema}/{object_type}s"))
                 file_suffix = get_file_suffix(object_type)
-                with open(data_bean.build_script_path + f"/{schema}/{object_type}s/{schema}.{db_object}.{file_suffix}.sql", "a") as output_file:
+                file_name = f"{schema}.{db_object}.{file_suffix}.sql"
+                with open(data_bean.build_script_path + f"/{schema}/{object_type}s/{file_name}", "a") as output_file:
                     output_file.write(block)
 
-                run_file_create(data_bean, db_object, file_suffix, object_type, schema)
+                create_build_script_run_files(data_bean, file_name, object_type, schema)
                 master_file_create(data_bean, schema)
-                run_file_map[f"{schema}"][f"{object_type}"] = 1
+                build_script_map[f"{schema}"][f"{object_type}"] = 1
             else:
                 plsql_block_info = is_plsql_block_(i, block)
                 if plsql_block_info:
                     start, schema, end = plsql_block_info
                     file_utils.create_folder_if_not_exists(os.path.join(data_bean.update_data_path + f"/{schema}/data"))
-                    with open(data_bean.update_data_path + f"/{schema}/data/{schema}.data_fixes.data.sql", "a") as output_file:
+                    file_name = f"{schema}.data_fixes.data.sql"
+                    with open(data_bean.update_data_path + f"/{schema}/data/{file_name}", "a") as output_file:
                         output_file.write(block)
 
-    master_file_populate(data_bean, run_file_map)
+                    create_update_data_run_files(data_bean, file_name, schema)
+
+    data_bean.build_script_map = build_script_map
     return True
 
 
-def run_file_create(data_bean, db_object, file_suffix, object_type, schema):
+def create_build_script_run_files(data_bean, file_name, object_type, schema):
     run_file_name = data_bean.build_script_path + f"/{schema}/{object_type}s/run.{schema}.{object_type}s.sql"
     tags = {"[#SCHEMA]": f"{schema}", "[#OBJECT_TYPE]": f"{object_type}s"}
     file_utils.create_file_if_not_exists(run_file_name, f"templates/run_file_template.sql",
                                          tags)
-    run_file_line = [f"@@{schema}.{db_object}.{file_suffix}.sql"]
-    insert_before_search_string(run_file_name, "spool off", run_file_line)
+    run_file_line = [f"@@{file_name}"]
+    file_utils.insert_before_search_string(run_file_name, "spool off", run_file_line)
+
+def create_update_data_run_files(data_bean, file_name, schema):
+    run_file_name = data_bean.update_data_path + f"/{schema}/data/run.{schema}.data.sql"
+    tags = {"[#SCHEMA]": f"{schema}", "[#OBJECT_TYPE]": f"data"}
+    file_utils.create_file_if_not_exists(run_file_name, f"templates/run_file_template.sql",
+                                         tags)
+    run_file_line = [f"@@{file_name}"]
+    file_utils.insert_before_search_string(run_file_name, "spool off", run_file_line)
+
 
 def master_file_create(data_bean, schema):
     master_file_name = data_bean.build_script_path + f"/{schema}/master.sql"
@@ -347,6 +364,6 @@ def patch_validation(data_bean):
 
     return status
 
-def create_run_files(data_bean):
-
+def create_master_files(data_bean):
+    populate_master_file(data_bean)
     return True

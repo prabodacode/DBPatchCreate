@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Optional, Dict
+
 
 @dataclass
 class DataBean:
@@ -28,4 +29,5 @@ class DataBean:
 
     source_folder: str = ""
 
+    build_script_map: Optional[Dict[str, Dict[str, int]]] = None
 
