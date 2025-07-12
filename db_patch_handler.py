@@ -95,6 +95,22 @@ def copy_patch_template_folder_structure_to_new_hotfix_folder(data_bean):
         target_dir = os.path.join(destination_folder, rel_path)
         os.makedirs(target_dir, exist_ok=True)
 
+def add_additional_files(data_bean):
+    template_folder = os.path.join(data_bean.patches_folder, "PatchTemplate")
+    destination_folder = data_bean.hotfix_folder
+
+    for root, _, files in os.walk(template_folder):
+        rel_path = os.path.relpath(root, template_folder)
+        dest_dir = os.path.join(destination_folder, rel_path)
+
+        for file_name in files:
+            src_file = os.path.join(root, file_name)
+            dest_file = os.path.join(dest_dir, file_name)
+
+            if not os.path.exists(dest_file):
+                os.makedirs(dest_dir, exist_ok=True)  # In case folder was skipped earlier
+                shutil.copy2(src_file, dest_file)
+
 def read_source_folder(source_folder):
     sql_files = [f for f in os.listdir(source_folder) if f.endswith(".sql")]
     for sql_file in sql_files:
@@ -188,30 +204,47 @@ def process_sql_file_and_add_end_markers(input_f, output_f):
         output_file.write("\n--END--\n")
 
 
-def populate_master_file(data_bean):
+def populate_build_script_master_file(data_bean):
     lines_to_insert = []
 
     for schema, types in data_bean.build_script_map.items():
         for obj_type in types:
             if types.get(obj_type, 0) > 0:
-                file_name = file_utils.get_run_file_name_in_folder(f"{data_bean.build_script_path}/{schema}/{obj_type}s")
-                lines_to_insert.append(f"@@./{file_name}")
+                matching_files = file_utils.get_sql_files_starting_with(f"{data_bean.build_script_path}/{schema}/{obj_type}s", f"run.")
+                for file_name in matching_files:
+                    lines_to_insert.append(f"@@./{file_name}")
 
         master_file_name = data_bean.build_script_path + f"/{schema}/master.sql"
         insert_before_search_string(master_file_name, "exit", lines_to_insert)
     return lines_to_insert
 
-def populate_update_file(data_bean):
+def populate_update_data_master_file(data_bean):
     lines_to_insert = []
 
     for schema, types in data_bean.update_data_map.items():
         for obj_type in types:
             if types.get(obj_type, 0) > 0:
-                file_name = file_utils.get_run_file_name_in_folder(f"{data_bean.update_data_path}/{schema}/{obj_type}")
-                lines_to_insert.append(f"@@./{file_name}")
+                matching_files = file_utils.get_sql_files_starting_with(f"{data_bean.update_data_path}/{schema}/{obj_type}", f"run.")
+                for file_name in matching_files:
+                    lines_to_insert.append(f"@@./{file_name}")
 
         update_file_name = data_bean.update_data_path + f"/{schema}/update.sql"
         insert_before_search_string(update_file_name, "exit", lines_to_insert)
+    return lines_to_insert
+
+def repopulate_update_data_run_files(data_bean):
+    lines_to_insert = []
+
+    for schema, types in data_bean.update_data_map.items():
+        for obj_type in types:
+            if types.get(obj_type, 0) > 0:
+                run_file_name = file_utils.get_first_sql_file_starting_with(f"{data_bean.update_data_path}/{schema}/{obj_type}", f"run.")
+                matching_files = file_utils.get_sql_files_starting_with(f"{data_bean.update_data_path}/{schema}/{obj_type}", f"{schema}.")
+                for file_name in matching_files:
+                    lines_to_insert.append(f"@@{file_name}")
+
+                run_file_name = data_bean.update_data_path + f"/{schema}/{obj_type}/{run_file_name}"
+                insert_before_search_string(run_file_name, "spool off", lines_to_insert)
     return lines_to_insert
 
 
@@ -389,7 +422,7 @@ def patch_validation(data_bean):
 
     return status
 
-def create_master_files(data_bean):
-    populate_master_file(data_bean)
-    populate_update_file(data_bean)
+def populate_master_files(data_bean):
+    populate_build_script_master_file(data_bean)
+    populate_update_data_master_file(data_bean)
     return True

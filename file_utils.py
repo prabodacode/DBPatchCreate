@@ -109,10 +109,16 @@ def insert_before_search_string(file_path, search_string, lines_to_insert):
     with open(file_path, 'w', encoding='utf-8') as f:
         f.writelines(lines)
 
-def get_run_file_name_in_folder(folder_path):
-    pattern = re.compile(r'^run.*\.sql$', re.IGNORECASE)
+def get_sql_files_starting_with(folder_path, start_string):
+    pattern = re.compile(rf'^{re.escape(start_string)}.*\.sql$', re.IGNORECASE)
 
-    for f in os.listdir(folder_path):
-        if os.path.isfile(os.path.join(folder_path, f)) and pattern.match(f):
-            return f  # Return the first match
-    return None
+    matching_files = [
+        f for f in os.listdir(folder_path)
+        if os.path.isfile(os.path.join(folder_path, f)) and pattern.match(f)
+    ]
+
+    return matching_files
+
+def get_first_sql_file_starting_with(folder_path, start_string):
+    matching_files = get_sql_files_starting_with(folder_path, start_string)
+    return matching_files[0] if matching_files else None
