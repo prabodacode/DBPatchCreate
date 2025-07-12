@@ -89,11 +89,20 @@ def insert_before_search_string(file_path, search_string, lines_to_insert):
     with open(file_path, 'r', encoding='utf-8') as f:
         lines = f.readlines()
 
+    # Normalize lines to compare ignoring whitespace
+    existing_line_set = set(line.strip() for line in lines)
+    insert_line_set = set(line.strip() for line in lines_to_insert)
+
+    # Filter out lines already present
+    missing_lines = [line for line in lines_to_insert if line.strip() not in existing_line_set]
+    if not missing_lines:
+        return  # Nothing to insert
+
+    # Find insertion point
     for i, line in enumerate(lines):
-        if line.strip().lower() == search_string:
-            # Insert all lines before spool off line
-            # Add newline if missing
-            insert_lines = [l if l.endswith('\n') else l + '\n' for l in lines_to_insert]
+        if line.strip().lower() == search_string.lower():
+            # Ensure newlines
+            insert_lines = [l if l.endswith('\n') else l + '\n' for l in missing_lines]
             lines[i:i] = insert_lines
             break
 
