@@ -39,6 +39,26 @@ BEGIN
 END;
 /
 
+DECLARE
+    1_sql   NUMBER := 0;
+    l_count   NUMBER := 0;
+    l_ddl     VARCHAR2 (1000)
+        := 'ALTER TABLE dfn_ntp.U09_CUSTOMER_LOGIN  ADD (  U09_DATE_time TIMESTAMP (6) DEFAULT SYSTIMESTAMP,
+               a03_table                    VARCHAR2 (50), )';
+BEGIN
+    SELECT COUNT (*)
+      INTO l_count
+      FROM all_tab_columns
+     WHERE     owner = UPPER ('dfn_ntp')
+           AND table_name = UPPER ('u09_customer_login')
+           AND column_name = UPPER ('U09_DATE_time');
+    IF l_count = 0
+    THEN
+        EXECUTE IMMEDIATE l_ddl;
+    END IF;
+END;
+/
+
 MERGE INTO dfn_ntp.m148_notify_events_master
      USING DUAL
         ON (2_sql = 205)

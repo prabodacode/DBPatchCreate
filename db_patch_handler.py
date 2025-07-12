@@ -376,7 +376,7 @@ def read_blocks_from_file(file_path):
         content = file.read()
 
     # Split the content into blocks using the tag "--END--"
-    blocks = [block.strip() if block.strip() else None for block in content.split('\n--END--\n') if block.strip()]
+    blocks = [block if block.strip() else None for block in content.split('\n--END--\n') if block.strip()]
     return blocks
 
 #############################
