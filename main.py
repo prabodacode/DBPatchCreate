@@ -5,9 +5,6 @@ from data_bean import *
 from db_patch_handler import *
 from git_utils import *
 
-
-
-
 if __name__ == "__main__":
     # sys.exit(0);
     config_data = read_config_file()
@@ -26,6 +23,7 @@ if __name__ == "__main__":
     populate_master_files(data_bean)
     add_additional_files(data_bean)
     repopulate_update_data_run_files(data_bean)
+    extract_core_country_versions_from_base_patch(data_bean)
     i=10
 
     # create_next_hotfix_folder_from_base_patch(base_patch_folder, next_hotfix_folder)

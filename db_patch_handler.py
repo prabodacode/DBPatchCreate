@@ -426,3 +426,38 @@ def populate_master_files(data_bean):
     populate_build_script_master_file(data_bean)
     populate_update_data_master_file(data_bean)
     return True
+
+def extract_core_country_versions_from_base_patch(data_bean):
+
+    file_path = os.path.join(
+        data_bean.base_patch_folder,
+        "02 New DB Release/UpdateData/dfn_ntp/data/dfn_ntp.data_fixes.data.sql"
+    )
+
+    if not os.path.exists(file_path):
+        print("File not found:", file_path)
+        return None
+
+    with open(file_path, 'r', encoding='utf-8') as f:
+        sql_text = f.read()
+
+    # Normalize the SQL block (remove newlines, extra spaces)
+    sql_flat = re.sub(r'\s+', ' ', sql_text)
+
+    # Match the full VALUES clause for z10_version_audit_log
+    pattern = re.compile(
+        r"INSERT\s+INTO\s+dfn_ntp\.z10_version_audit_log\s*VALUES\s*\([^)]*?'([^']+)',\s*'([^']+)',\s*'([^']+)'",
+        re.IGNORECASE
+    )
+
+    match = pattern.search(sql_flat)
+    if match:
+        core_version, country_version, custom_version = match.groups()
+        print(f"LN456:Base path versions, \ncore_version={core_version}, \ncountry_version={country_version}, \ncustom_version={custom_version}")
+        return {
+            "core": core_version,
+            "country": country_version,
+            "custom": custom_version
+        }
+
+    return None
