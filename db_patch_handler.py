@@ -332,27 +332,27 @@ def read_temp_folder(data_bean):
 def create_build_script_run_files(data_bean, file_name, object_type, schema):
     run_file_name = data_bean.build_script_path + f"/{schema}/{object_type}s/run.{schema}.{object_type}s.sql"
     tags = {"[#SCHEMA]": f"{schema}", "[#OBJECT_TYPE]": f"{object_type}s"}
-    file_utils.create_or_append_file(run_file_name, f"templates/run_file_template.sql",
-                                     tags)
+    file_utils.create_file_from_template_if_not_exists(run_file_name, f"templates/run_file_template.sql",
+                                                       tags)
     run_file_line = [f"@@{file_name}"]
     file_utils.insert_before_search_string(run_file_name, "spool off", run_file_line)
 
 def create_update_data_run_files(data_bean, file_name, schema):
     run_file_name = data_bean.update_data_path + f"/{schema}/data/run.{schema}.data.sql"
     tags = {"[#SCHEMA]": f"{schema}", "[#OBJECT_TYPE]": f"data"}
-    file_utils.create_or_append_file(run_file_name, f"templates/run_file_template.sql",
-                                     tags)
+    file_utils.create_file_from_template_if_not_exists(run_file_name, f"templates/run_file_template.sql",
+                                                       tags)
     run_file_line = [f"@@{file_name}"]
     file_utils.insert_before_search_string(run_file_name, "spool off", run_file_line)
 
 
 def master_file_create(data_bean, schema):
     master_file_name = data_bean.build_script_path + f"/{schema}/master.sql"
-    file_utils.create_or_append_file(master_file_name, f"templates/master_file_template.sql", None)
+    file_utils.create_file_from_template_if_not_exists(master_file_name, f"templates/master_file_template.sql", None)
 
 def update_file_create(data_bean, schema):
     master_file_name = data_bean.update_data_path + f"/{schema}/update.sql"
-    file_utils.create_or_append_file(master_file_name, f"templates/master_file_template.sql", None)
+    file_utils.create_file_from_template_if_not_exists(master_file_name, f"templates/master_file_template.sql", None)
 
 def get_file_suffix(object_type):
     match object_type:
@@ -397,14 +397,30 @@ def source_validation(data_bean):
     status = is_empty_file_folder('source_validation')
 
     if(status):
-        print(f"LN:276, =====source_validation successful=====")
+        print(f"LN:276, =====SOURCE_VALIDATION SUCCESSFUL=====")
 
     return status
 
 #############################
+def delete_run_and_master_files(base_dir):
+    # Regex pattern: starts with run. or master. and ends with .sql
+    pattern = re.compile(r'^(run|master|update)(\..*)?\.sql$', re.IGNORECASE)
+
+    for root, dirs, files in os.walk(base_dir):
+        for file in files:
+            if pattern.match(file):
+                file_path = os.path.join(root, file)
+                try:
+                    os.remove(file_path)
+                    print(f"Deleted: {file_path}")
+                except Exception as e:
+                    print(f"Error deleting {file_path}: {e}")
+    return True
+
 def patch_validation(data_bean):
     patch_folder = os.path.join(data_bean.hotfix_folder, f"02 New DB Release")
     shutil.copytree(patch_folder, 'patch_validation',dirs_exist_ok=True)
+    delete_run_and_master_files(f"patch_validation")
     sql_files = [f for f in os.listdir('temp') if f.endswith(".sql")]
 
     for sql_file in sql_files:
@@ -419,7 +435,7 @@ def patch_validation(data_bean):
     status = is_empty_file_folder('patch_validation')
 
     if(status):
-        print(f"LN:291, =====patch_validation successful=====")
+        print(f"LN:291, =====PATCH_VALIDATION SUCCESSFUL=====")
 
     return status
 
@@ -439,8 +455,12 @@ def version_update(data_bean):
         , "[#COUNTRY_VERSION]": f"{country_version}"
     }
     data_fixes_file_name = data_bean.update_data_path + f"/dfn_ntp/data/dfn_ntp.data_fixes.data.sql"
-    file_utils.create_or_append_file(data_fixes_file_name, f"templates/data_fixes_update_template.sql",
-                                     tags)
+
+    if not os.path.exists(data_fixes_file_name):
+        os.makedirs(os.path.dirname(data_fixes_file_name), exist_ok=True)
+
+    file_utils.appende_file_from_template(data_fixes_file_name, f"templates/data_fixes_update_template.sql",
+                                                       tags)
     return True
 
 def extract_base_core_country_versions(data_bean):

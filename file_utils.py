@@ -70,10 +70,24 @@ def is_empty_file_folder(folder_path):
 
     return status
 
-def create_or_append_file(new_file_name, template_file_name=None, tags=None):
-    os.makedirs(os.path.dirname(new_file_name), exist_ok=True)
+def create_file_from_template_if_not_exists(new_file_name, template_file_name=None, tags=None):
+    if not os.path.exists(new_file_name):
+        os.makedirs(os.path.dirname(new_file_name), exist_ok=True)
+        if template_file_name and os.path.exists(template_file_name):
+            with open(template_file_name, 'r', encoding='utf-8') as f:
+                content = f.read()
 
-    # Read template and replace tags (if applicable)
+            # Replace tag placeholders
+            if tags:
+                for tag, value in tags.items():
+                    content = content.replace(tag, value)
+
+            with open(new_file_name, 'w', encoding='utf-8') as f:
+                f.write(content)
+        return True
+
+
+def appende_file_from_template(new_file_name, template_file_name=None, tags=None):
     content = ""
     if template_file_name and os.path.exists(template_file_name):
         with open(template_file_name, 'r', encoding='utf-8') as f:
@@ -83,12 +97,10 @@ def create_or_append_file(new_file_name, template_file_name=None, tags=None):
             for tag, value in tags.items():
                 content = content.replace(tag, value)
 
-    # Create or append
-    mode = 'w' if not os.path.exists(new_file_name) else 'a'
-    with open(new_file_name, mode, encoding='utf-8') as f:
+    with open(new_file_name, 'a', encoding='utf-8') as f:
         if content:
             f.write('\n' + content)  # Add newline before appending
-
+    return True
 
 def insert_before_search_string(file_path, search_string, lines_to_insert):
     with open(file_path, 'r', encoding='utf-8') as f:
