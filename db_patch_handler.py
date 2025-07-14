@@ -213,7 +213,7 @@ def populate_build_script_master_file(data_bean):
             if types.get(obj_type, 0) > 0:
                 matching_files = file_utils.get_sql_files_starting_with(f"{data_bean.build_script_path}/{schema}/{obj_type}s", f"run.")
                 for file_name in matching_files:
-                    lines_to_insert.append(f"@@./{file_name}")
+                    lines_to_insert.append(f"@@./{obj_type}s/{file_name}")
 
         master_file_name = data_bean.build_script_path + f"/{schema}/master.sql"
         insert_before_search_string(master_file_name, "exit", lines_to_insert)

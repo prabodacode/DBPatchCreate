@@ -14,7 +14,7 @@ if __name__ == "__main__":
     pre_populate(config_data, data_bean)
     clean_temporary_files(data_bean)
 
-    # git_checkout_and_pull(data_bean.branch_name, data_bean.repo_path)
+    git_checkout_and_pull(data_bean.branch_name, data_bean.repo_path)
     copy_patch_template_folder_structure_to_new_hotfix_folder(data_bean)
     read_source_folder(data_bean.source_folder)
     source_validation(data_bean)
